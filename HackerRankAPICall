@@ -1,0 +1,50 @@
+
+//This method accepts statusQuery and pageNum
+const getIoTDeviceData = (statusQuery, pageNum) => {
+    let totalPages = 0;
+    //generate url which is used to request data from server
+    let url = `https://jsonmock.hackerrank.com/api/iot_devices/search?status=${statusQuery}&page=${pageNum}`
+    //Promise method is used to handle async operation in JavaScript. resolve will return http status ode 200 or else 404
+    return new Promise((resolve, reject) => {
+	//Different http method can be used like get, post, put or delete
+        https.get(url, (res) => {
+	    //ASCII ccharacters are limited in length so to support the data we have used utf-8
+            res.setEncoding('utf8');
+	    //response, data, end, error, finish are different methods of response method
+            res.on('data', function(body) {
+		//JSON.parse is used to store servers response in JSON object
+                let dataRec = JSON.parse(body);
+		// the specific data like totalPages and iotDevices are obtained from the JSON Object
+                totalPages = dataRec.total_pages;
+                let iotDevices = dataRec.data;
+		//filter is used to retrieve data which have parent key
+                const filteredDevices = iotDevices.filter(device => device.parent);
+		//resolve is similar to return statement which returns the filtered array and total number of pages to the calling function
+                resolve({filteredDevices, totalPages});
+            });
+            res.on('error', error => reject(error));
+        }); 
+    });
+}
+
+//Main function control
+//A method if declared as async if that particular method uses a "await" keyword to call any specific function
+async function avgRotorSpeed(statusQuery, parentId) {
+    let targetIotDevices = [];
+
+    //await will inform JavaScript compiler to wait until it receives response from await function
+    const {filteredDevices, totalPages} = await getIoTDeviceData(statusQuery, 0);
+    //... is a spread operator which is used to iterate data through array
+    targetIotDevices.push(...filteredDevices);
+    //we have traverse the filteredData received from the method
+    for(let i = 1; i <= totalPages; i ++) {
+        const { filteredDevices: filData } = await getIoTDeviceData(statusQuery, i);
+        targetIotDevices.push(...filData);
+    }
+    //filtermethod is used to filter dtaa based on user input
+    const parentDevices = targetIotDevices.filter(item => item.parent.id === parentId);
+    //In order to find the average of IoT devices, we will first find the speed of all devices using reduce method. Reduce method will execute the function specified inside it and return result
+    const sumRotorSpd = parentDevices.reduce((a, b) => a + b.operatingParams.rotorSpeed, 0);
+    //if the length is > 0 then we will find average speed else return 0
+    return parentDevices.length ? parseInt(sumRotorSpd / parentDevices.length, 10) : 0;
+}
